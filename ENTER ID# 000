@@ -1,0 +1,219 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local lp = Players.LocalPlayer
+
+-- --- CONFIGURAÇÕES DE ÍCONES ---
+local ICONES = {
+    ABRIR_FECHAR = "rbxassetid://79183707743115", 
+    FECHAR_INTERNO = "rbxassetid://98235327129327", 
+}
+
+-- --- VARIÁVEIS DE ESTADO ---
+local painelVisivel = false
+local currentTrack = nil
+
+-- --- LOCALIZAÇÃO EXATA DOS REMOTOS ---
+local remotesFolder = ReplicatedStorage:WaitForChild("Remotes", 5)
+local wearRemote = remotesFolder and remotesFolder:FindFirstChild("Wear")
+
+-- --- CRIAÇÃO DA UI ---
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CubnitCatalogUI_PerfectFix"
+ScreenGui.ResetOnSpawn = false
+pcall(function()
+    ScreenGui.Parent = CoreGui
+end)
+if not ScreenGui.Parent then
+    ScreenGui.Parent = lp:WaitForChild("PlayerGui")
+end
+
+-- 1. Botão Flutuante (ScaleType.Fit para não achatar de forma alguma)
+local FloatingButton = Instance.new("ImageButton")
+FloatingButton.Name = "OpenToggleButton"
+FloatingButton.Size = UDim2.new(0, 65, 0, 65) 
+FloatingButton.Position = UDim2.new(0.05, 0, 0.3, 0)
+FloatingButton.BackgroundTransparency = 1
+FloatingButton.Image = ICONES.ABRIR_FECHAR
+FloatingButton.ScaleType = Enum.ScaleType.Fit
+FloatingButton.Active = true
+FloatingButton.Parent = ScreenGui
+
+-- 2. Painel de Inserção de IDs (Design Compacto e Limpo)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 340, 0, 115) 
+MainFrame.Position = UDim2.new(0.5, -170, 0.4, -57)
+MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+MainFrame.BorderSizePixel = 3
+MainFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+MainFrame.Visible = false
+MainFrame.Active = true
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -50, 0, 30)
+Title.Position = UDim2.new(0, 12, 0, 5)
+Title.BackgroundTransparency = 1
+Title.Text = "Id do Catálogo do Roblox #"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.Antique
+Title.TextSize = 19 
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+local CloseButtonIntern = Instance.new("ImageButton")
+CloseButtonIntern.Name = "CloseButtonIntern"
+CloseButtonIntern.Size = UDim2.new(0, 26, 0, 26) 
+CloseButtonIntern.Position = UDim2.new(1, -38, 0, 7)
+CloseButtonIntern.BackgroundTransparency = 1
+CloseButtonIntern.Image = ICONES.FECHAR_INTERNO
+CloseButtonIntern.ScaleType = Enum.ScaleType.Fit
+CloseButtonIntern.Parent = MainFrame
+
+local TextBox = Instance.new("TextBox")
+TextBox.Size = UDim2.new(1, -24, 0, 36) 
+TextBox.Position = UDim2.new(0, 12, 0, 40) 
+TextBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+TextBox.BorderSizePixel = 0
+TextBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+TextBox.Text = "Enter ID#"
+TextBox.PlaceholderText = ""
+TextBox.Font = Enum.Font.SourceSansBold
+TextBox.TextSize = 22 
+TextBox.Parent = MainFrame
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -24, 0, 20)
+StatusLabel.Position = UDim2.new(0, 12, 1, -24)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "IDS: ALL"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.Font = Enum.Font.SourceSansBold
+StatusLabel.TextSize = 14
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = MainFrame
+
+
+-- --- FUNÇÃO PARA ARRASTAR ELEMENTOS (PC E MOBILE) ---
+
+local function ConfigurarArrastar(gui)
+    local dragging, dragInput, dragStart, startPos
+    gui.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = gui.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    gui.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+ConfigurarArrastar(FloatingButton)
+ConfigurarArrastar(MainFrame)
+
+
+-- --- LÓGICA DE INJEÇÃO MODO ALL ---
+
+local function AoProcessarID(idString)
+    local idLimpo = idString:gsub("%D", "")
+    local idNum = tonumber(idLimpo)
+    
+    if not idNum or idNum == 0 then return end
+
+    -- 1. Execução via Wear Remote do Brookhaven
+    if wearRemote then
+        pcall(function()
+            wearRemote:InvokeServer(idNum)
+        end)
+    end
+
+    -- 2. Métodos secundários de sincronia do jogo
+    if remotesFolder then
+        local refreshRemote = remotesFolder:FindFirstChild("RefreshCharacter")
+        local bodyRemote = remotesFolder:FindFirstChild("ChangeCharacterBody")
+        
+        if refreshRemote then
+            pcall(function()
+                refreshRemote:FireServer({[tostring(idNum)] = true})
+            end)
+        end
+        if bodyRemote then
+            pcall(function()
+                local bodyParts = {idNum, idNum, idNum, idNum, idNum}
+                bodyRemote:InvokeServer(unpack({bodyParts}))
+            end)
+        end
+    end
+
+    -- 3. Executor direto local para animações cruas
+    local char = lp.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local animator = hum and hum:FindFirstChildOfClass("Animator")
+
+    if animator then
+        pcall(function()
+            if currentTrack then currentTrack:Stop() end
+            local anim = Instance.new("Animation")
+            anim.AnimationId = "rbxassetid://" .. idNum
+            currentTrack = animator:LoadAnimation(anim)
+            currentTrack.Priority = Enum.AnimationPriority.Action4
+            currentTrack.Looped = true
+            currentTrack:Play()
+        end)
+    end
+end
+
+
+-- --- CONTROLADORES ---
+
+local function TogglePanel()
+    painelVisivel = not painelVisivel
+    MainFrame.Visible = painelVisivel
+end
+
+local function FecharScriptCompletamente()
+    if currentTrack then currentTrack:Stop() end
+    ScreenGui:Destroy()
+end
+
+FloatingButton.MouseButton1Click:Connect(TogglePanel)
+CloseButtonIntern.MouseButton1Click:Connect(FecharScriptCompletamente)
+
+-- Limpa a caixa ao clicar nela para digitar
+TextBox.Focused:Connect(function()
+    if TextBox.Text == "Enter ID#" then
+        TextBox.Text = ""
+    end
+end)
+
+-- Gerencia a perda de foco (Ao apertar enter ou clicar fora)
+TextBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local idDigitado = TextBox.Text
+        if idDigitado ~= "" and idDigitado ~= "Enter ID#" then
+            AoProcessarID(idDigitado)
+        end
+    end
+    
+    -- Força o texto "Enter ID#" a voltar sempre que o jogador terminar a ação
+    TextBox.Text = "Enter ID#"
+end)
