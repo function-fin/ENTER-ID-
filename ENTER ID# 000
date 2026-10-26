@@ -23,12 +23,25 @@ local wearRemote = remotesFolder and remotesFolder:FindFirstChild("Wear")
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CubnitCatalogUI_PerfectFix"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
 pcall(function()
     ScreenGui.Parent = CoreGui
 end)
 if not ScreenGui.Parent then
     ScreenGui.Parent = lp:WaitForChild("PlayerGui")
 end
+
+-- ADAPTAÇÃO AUTOMÁTICA DE ESCALA (+80% NO PC, PADRÃO NO MOBILE)
+local uiScale = Instance.new("UIScale", ScreenGui)
+local function updateUIScale()
+    if not UserInputService.TouchEnabled then
+        uiScale.Scale = 1.8 -- Aumenta 80% no PC
+    else
+        uiScale.Scale = 1.0 -- Mantém tamanho padrão no mobile
+    end
+end
+UserInputService:GetPropertyChangedSignal("TouchEnabled"):Connect(updateUIScale)
+updateUIScale()
 
 -- 1. Botão Flutuante (ScaleType.Fit para não achatar de forma alguma)
 local FloatingButton = Instance.new("ImageButton")
